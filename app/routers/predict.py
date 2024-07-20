@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.crud import predict, get_db
-from app.schemas import Iris
-from typing import List
+from app.crud import predict
+from app.schemas import PredictRequest, PredictResponse
 
 router = APIRouter()
 
-@router.post("/predict/")
-def predict_flower(data: List[Iris], db: Session = Depends(get_db)):
-    features = [[iris.sepal_length, iris.sepal_width, iris.petal_length, iris.petal_width] for iris in data]
-    predictions = predict(features)
-    return {"predictions": predictions}
+@router.post("/", response_model=PredictResponse, description="Predict the class of an iris flower based on the provided features.")
+def predict_flower(request: PredictRequest):
+    features = [[request.data.sepal_length, request.data.sepal_width, request.data.petal_length, request.data.petal_width]]
+    prediction = predict(features)
+    return {"prediction": prediction}
