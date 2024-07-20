@@ -1,57 +1,62 @@
+import gridfs
 import joblib
-from app.database import fs
+from pymongo import MongoClient
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
-import numpy as np
+import os
+import io
 
-def save_model_to_mongodb(model, collection_name='models', file_name='model.joblib'):
-    with open(file_name, 'wb') as f:
-        joblib.dump(model, f)
-    with open(file_name, 'rb') as f:
-        fs.put(f, filename=file_name)
+DATABASE_URL = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+DATABASE_NAME = "ml_api_db"
 
-def load_model_from_mongodb(file_name='model.joblib'):
+client = MongoClient(DATABASE_URL)
+db = client[DATABASE_NAME]
+fs = gridfs.GridFS(db)
+
+def save_model_to_mongodb(model, file_name="model.joblib"):
+    buffer = io.BytesIO()
+    joblib.dump(model, buffer)
+    buffer.seek(0)
+    with fs.new_file(filename=file_name) as fp:
+        fp.write(buffer.read())
+
+def load_model_from_mongodb(file_name="model.joblib"):
     file = fs.find_one({'filename': file_name})
     if file:
-        with open(file_name, 'wb') as f:
-            f.write(file.read())
-        model = joblib.load(file_name)
+        buffer = io.BytesIO(file.read())
+        buffer.seek(0)
+        model = joblib.load(buffer)
         return model
-    return None
+    else:
+        raise FileNotFoundError(f"No model found with filename {file_name}")
 
-def save_label_encoder_to_mongodb(label_encoder, file_name='label_encoder.joblib'):
-    with open(file_name, 'wb') as f:
-        joblib.dump(label_encoder, f)
-    with open(file_name, 'rb') as f:
-        fs.put(f, filename=file_name)
+def save_label_encoder_to_mongodb(label_encoder, file_name="label_encoder.joblib"):
+    buffer = io.BytesIO()
+    joblib.dump(label_encoder, buffer)
+    buffer.seek(0)
+    with fs.new_file(filename=file_name) as fp:
+        fp.write(buffer.read())
 
-def load_label_encoder_from_mongodb(file_name='label_encoder.joblib'):
+def load_label_encoder_from_mongodb(file_name="label_encoder.joblib"):
     file = fs.find_one({'filename': file_name})
     if file:
-        with open(file_name, 'wb') as f:
-            f.write(file.read())
-        label_encoder = joblib.load(file_name)
+        buffer = io.BytesIO(file.read())
+        buffer.seek(0)
+        label_encoder = joblib.load(buffer)
         return label_encoder
-    return None
+    else:
+        raise FileNotFoundError(f"No label encoder found with filename {file_name}")
 
-model = load_model_from_mongodb()
-label_encoder = load_label_encoder_from_mongodb()
-
-if model is None:
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-
-if label_encoder is None:
-    label_encoder = LabelEncoder()
-
-def retrain_model(new_data: np.ndarray, new_labels: list):
-    global model
-    new_labels_encoded = label_encoder.fit_transform(new_labels)
-    model.fit(new_data, new_labels_encoded)
+def retrain_model(new_data, new_labels):
+    model = load_model_from_mongodb()
+    model.fit(new_data, new_labels)
     save_model_to_mongodb(model)
-    save_label_encoder_to_mongodb(label_encoder)
     return model
 
-def predict(data: np.ndarray):
-    global model
-    prediction = model.predict(data)
-    return label_encoder.inverse_transform(prediction)
+def predict(data):
+    model = load_model_from_mongodb()
+    predictions = model.predict(data)
+    return predictions
+
+def get_db():
+    return db
