@@ -38,3 +38,5 @@ This project is an API for training and predicting machine learning models using
     ```sh
     http://127.0.0.1:8000/docs
     ```
+
+5. There user is adrian and the password is leon to get the token

@@ -6,7 +6,6 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
-import joblib
 from app.crud import save_model_to_mongodb, save_label_encoder_to_mongodb
 
 dataset_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/data/IRIS.csv'
